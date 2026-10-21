@@ -1,0 +1,19 @@
+   # Rust
+   /target/
+   **/*.rs.bk
+
+   # Node / Frontend
+   node_modules/
+   crates/opendeck-ui/dist/
+   crates/opendeck-ui/src-tauri/target/
+
+   # Arquivos de Sistema / IDE
+   .DS_Store
+   .vscode/
+   *.log
+
+   # Arquivos Pessoais (NUNCA suba isso para o GitHub)
+   *.db
+   *.mp3
+   *.wav
+   *.flac

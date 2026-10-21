@@ -2,6 +2,9 @@
 
 Software de DJ open-source compatível com a biblioteca Rekordbox 6.x, focado em performance, baixa latência e portabilidade (Windows/Linux).
 
+> **⚠️ Aviso Legal (Disclaimer):**  
+> Este projeto é um esforço independente de engenharia reversa para fins de interoperabilidade e educação. O OpenDeck **não** é afiliado, endossado, patrocinado ou aprovado pela AlphaTheta Corporation ou Pioneer DJ. Todos os direitos sobre os formatos de arquivo `.DAT` e `master.db` pertencem aos seus respectivos proprietários.
+
 ## 🏗️ Arquitetura
 
 O projeto é um Workspace Rust dividido em crates modulares:
@@ -24,7 +27,7 @@ O projeto é um Workspace Rust dividido em crates modulares:
 
 1. Clone o repositório:
    ```bash
-   git clone https://github.com/SEU_USUARIO/opendeck.git
+   git clone https://github.com/alan-vieira/opendeck.git
    cd opendeck
    ```
 
@@ -32,9 +35,10 @@ O projeto é um Workspace Rust dividido em crates modulares:
    ```bash
    cd crates/opendeck-ui
    npm install
+   cd ../..
    ```
 
-3. Inicie o ambiente de desenvolvimento:
+   3. Inicie o ambiente de desenvolvimento:
    ```bash
    cargo tauri dev
    ```
@@ -43,9 +47,11 @@ O projeto é um Workspace Rust dividido em crates modulares:
 
 - [x] Parser de arquivos .DAT (PQTZ, PWAV)
 - [x] Leitura do master.db com SQLCipher
-- [x] Motor de áudio com buffer de 128 frames (~2.67ms)
+- [x] Motor de áudio com buffer configurável (padrão: 128 frames / ~2.67ms)
 - [x] Interface Tauri + React funcional
 - [ ] Integração completa Deck A / Deck B + Mixer
 - [ ] Suporte a controladores MIDI (DDJ-400/FLX4)
 
-*(Lembre-se de trocar `SEU_USUARIO` pelo seu nome de usuário real do GitHub.)*
+## 📄 Licença
+
+Este projeto está licenciado sob a Licença MIT. Veja o arquivo [LICENSE](./LICENSE) para mais detalhes.

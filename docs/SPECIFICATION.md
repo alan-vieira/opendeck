@@ -10,8 +10,12 @@ Estrutura de chunks TLV (Tag-Length-Value) com padding de 4 bytes.
   - *Renderização*: `pixel_height = (amplitude / 255) * canvas_height`
 
 ### Banco de Dados: `master.db`
-- **Engine**: SQLite com SQLCipher (AES-256).
-- **Tabelas Chave**: `djmdContent` (metadados), `djmdCue` (pontos de cue), `djmdPlaylist`.
+- **Engine**: SQLite com extensão SQLCipher (Criptografia AES-256-CBC).
+- **Tabelas Chave**:
+  - `djmdContent`: Metadados principais da faixa (título, artista, caminho do arquivo, BPM).
+  - `djmdCue`: Pontos de cue e loops salvos.
+  - `djmdPlaylist`: Estrutura de pastas e playlists da biblioteca.
+- **Nota de Segurança**: A chave de descriptografia do `master.db` é derivada de um identificador único do hardware ou configuração do usuário. O `opendeck-db` requer que essa chave seja fornecida via variável de ambiente ou prompt seguro na primeira execução.
 
 ## 2. Modelos de Dados (Rust)
 ```rust
@@ -28,4 +32,17 @@ pub struct TrackAnalysis {
     pub beatgrid_seconds: Vec<f32>,
     pub waveform_amplitudes: Vec<u8>,
 }
+
+pub struct CuePoint {
+    pub id: String,
+    pub track_id: String,
+    pub time_ms: u32,
+    pub cue_type: u8, // 0 = Memory, 1 = Loop, etc.
+}
+
+## 3. Requisitos de Áudio
+
+- **Latência Alvo**: ≤ 5ms (buffer de 128 a 256 frames a 48kHz).
+- **Formatos Suportados**: MP3, AAC, ALAC, FLAC, WAV (via `symphonia`).
+- **Thread de Áudio**: Deve rodar em prioridade elevada (Real-time se possível no SO) para evitar *xruns* (dropouts).
 ```

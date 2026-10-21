@@ -17,3 +17,5 @@
    *.mp3
    *.wav
    *.flac
+# Bundle analysis
+crates/opendeck-ui/bundle-analysis.html

@@ -1,0 +1,19 @@
+[package]
+name = "opendeck-audio"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+cpal = { workspace = true }
+opendeck-core = { path = "../opendeck-core" }
+symphonia = { version = "0.5", features = ["mp3", "wav", "flac", "aac"] }
+ringbuf = "0.3"
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[[example]]
+name = "play_test"
+path = "examples/play_test.rs"

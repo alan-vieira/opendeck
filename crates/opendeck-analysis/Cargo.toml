@@ -1,0 +1,11 @@
+# crates/opendeck-analysis/Cargo.toml
+[package]
+name = "opendeck-analysis"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+opendeck-core = { path = "../opendeck-core" }
+byteorder = { workspace = true }
+memmap2 = { workspace = true }
+thiserror = { workspace = true }

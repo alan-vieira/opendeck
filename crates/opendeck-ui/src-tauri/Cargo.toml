@@ -1,0 +1,35 @@
+[package]
+name = "opendeck-ui"
+version = "0.1.0"
+description = "OpenDeck DJ Software UI"
+authors = ["OpenDeck Team"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+
+# Dependências de Log que estavam faltando
+tauri-plugin-log = "2.0"
+log = "0.4"
+
+# Nossos crates do projeto
+opendeck-core = { path = "../../opendeck-core" }
+opendeck-analysis = { path = "../../opendeck-analysis" }
+opendeck-db = { path = "../../opendeck-db" }
+opendeck-audio = { path = "../../opendeck-audio" }
+opendeck-hardware = { path = "../../opendeck-hardware" }
+
+# Busca recursiva de arquivos de áudio em pastas de música
+walkdir = "2.4"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[workspace]

@@ -41,6 +41,7 @@ pub struct TrackAnalysis {
     pub beatgrid_seconds: Vec<f32>,
     pub waveform_amplitudes: Vec<u8>,
     pub estimated_bpm: Option<f32>,
+    pub duration_seconds: f32, // 👈 NOVO CAMPO
 }
 
 // Erros base que podem ser reutilizados

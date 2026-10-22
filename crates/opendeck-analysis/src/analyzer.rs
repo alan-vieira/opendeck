@@ -1,10 +1,4 @@
 //! Analisador de áudio próprio do OpenDeck.
-//!
-//! Decodifica arquivos de áudio reais (MP3, WAV, FLAC, AAC) usando `symphonia`
-//! (100% Rust, sem dependências C) e extrai:
-//! - Waveform: amostras de amplitude para renderização visual.
-//! - BPM: estimativa de tempo via RMS + histograma de intervalos de picos de energia.
-//! - Beatgrid: posição do downbeat (V1 básico).
 
 use crate::error::AnalysisError;
 use opendeck_core::TrackAnalysis;
@@ -12,13 +6,13 @@ use rustfft::FftPlanner;
 use rustfft::FftDirection;
 use rustfft::num_complex::Complex;
 use std::path::Path;
+use symphonia::core::audio::SampleBuffer;
 use symphonia::core::codecs::DecoderOptions;
 use symphonia::core::formats::FormatOptions;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use symphonia::default::{get_codecs, get_probe};
 
-/// Resultado da análise de uma faixa de áudio.
 #[derive(Debug, Clone)]
 pub struct AnalysisResult {
     pub beatgrid_seconds: Vec<f32>,
@@ -28,11 +22,9 @@ pub struct AnalysisResult {
     pub bpm_estimate: Option<f32>,
 }
 
-/// Motor de análise de áudio.
 pub struct AudioAnalyzer;
 
 impl AudioAnalyzer {
-    /// Analisa um arquivo de áudio e retorna `TrackAnalysis` compatível com o `opendeck-core`.
     pub fn analyze(file_path: &Path) -> Result<TrackAnalysis, AnalysisError> {
         let result = Self::analyze_full(file_path)?;
         Ok(TrackAnalysis {
@@ -40,13 +32,14 @@ impl AudioAnalyzer {
             waveform_amplitudes: result
                 .waveform_amplitudes
                 .into_iter()
-                .map(|s| (s * 255.0).clamp(0.0, 255.0) as u8)
+                // 👇 Multiplicamos por um boost (2.5) pra waveform ficar mais visível com RMS
+                .map(|s| (s * 255.0 * 2.5).clamp(0.0, 255.0) as u8)
                 .collect(),
             estimated_bpm: result.bpm_estimate,
+            duration_seconds: result.duration_seconds,
         })
     }
 
-    /// Analisa um arquivo de áudio e retorna metadados completos (incluindo sample rate, duração, BPM).
     pub fn analyze_full(file_path: &Path) -> Result<AnalysisResult, AnalysisError> {
         let file = std::fs::File::open(file_path).map_err(AnalysisError::IoError)?;
         let mss = symphonia::core::io::MediaSourceStream::new(
@@ -84,11 +77,11 @@ impl AudioAnalyzer {
         let mut all_samples: Vec<f32> = Vec::new();
         let mut sample_rate: Option<u32> = None;
         let mut total_frames: u64 = 0;
+        let mut sample_buf: Option<SampleBuffer<f32>> = None;
 
         loop {
             let packet = match format.next_packet() {
                 Ok(p) => p,
-                // Fim do arquivo ou qualquer erro de IO: para o loop
                 Err(symphonia::core::errors::Error::IoError(ref e))
                     if e.kind() == std::io::ErrorKind::UnexpectedEof =>
                 {
@@ -100,7 +93,6 @@ impl AudioAnalyzer {
                 continue;
             }
 
-            // 👇 A CORREÇÃO: em vez de abortar no primeiro erro, ignora e segue
             let decoded = match decoder.decode(&packet) {
                 Ok(d) => d,
                 Err(e) => {
@@ -109,31 +101,35 @@ impl AudioAnalyzer {
                 }
             };
 
+            let spec = *decoded.spec();
             if sample_rate.is_none() {
-                sample_rate = Some(decoded.spec().rate);
+                sample_rate = Some(spec.rate);
             }
 
-            let channels = decoded.spec().channels.count();
+            let channels = spec.channels.count();
             let frame_count = decoded.frames();
             total_frames += frame_count as u64;
 
-            // Downmix para mono: média de todos os canais
+            let buf = sample_buf.get_or_insert_with(|| {
+                SampleBuffer::<f32>::new(frame_count as u64, spec)
+            });
+            if buf.capacity() < frame_count {
+                *buf = SampleBuffer::<f32>::new(frame_count as u64, spec);
+            }
+            buf.copy_interleaved_ref(decoded);
+            let interleaved = buf.samples();
+
             if channels > 0 {
-                let float_buf = decoded.make_equivalent::<f32>();
-                let audio_planes = float_buf.planes();
-                let planes = audio_planes.planes();
                 let mut mono_sum = vec![0.0f32; frame_count];
-                for ch in 0..channels.min(planes.len()) {
-                    let ch_samples = planes[ch];
-                    for (i, s) in ch_samples.iter().enumerate() {
-                        if i < frame_count {
-                            mono_sum[i] += *s;
+                for frame in 0..frame_count {
+                    let mut sum = 0.0f32;
+                    for ch in 0..channels {
+                        let idx = frame * channels + ch;
+                        if idx < interleaved.len() {
+                            sum += interleaved[idx];
                         }
                     }
-                }
-                let ch_count = channels as f32;
-                for s in mono_sum.iter_mut() {
-                    *s /= ch_count;
+                    mono_sum[frame] = sum / channels as f32;
                 }
                 all_samples.extend_from_slice(&mono_sum);
             }
@@ -146,15 +142,12 @@ impl AudioAnalyzer {
 
         let duration_seconds = total_frames as f32 / sample_rate as f32;
 
-        // --- Waveform: downsample para um número fixo de amostras de exibição ---
         let display_samples = 2048;
         let waveform = Self::downsample_waveform(&all_samples, display_samples);
 
-        // --- BPM: estimativa via RMS + histograma de intervalos de picos de energia ---
         let bpm_estimate = Self::estimate_bpm_fft(&all_samples, sample_rate)
             .or_else(|| Self::estimate_bpm_rms(&all_samples, sample_rate));
 
-        // --- Beatgrid: posições dos picos de energia mais fortes ---
         let beatgrid_seconds = Self::compute_beatgrid(&all_samples, sample_rate, bpm_estimate);
 
         Ok(AnalysisResult {
@@ -166,7 +159,7 @@ impl AudioAnalyzer {
         })
     }
 
-    /// Reduz o sinal de áudio para `target_len` amostras (máximo por janela).
+    // 👇 MUDANÇA: usa RMS em vez de pico máximo
     fn downsample_waveform(samples: &[f32], target_len: usize) -> Vec<f32> {
         if samples.is_empty() || target_len == 0 {
             return Vec::new();
@@ -181,14 +174,16 @@ impl AudioAnalyzer {
             let end = (((i + 1) as f32) * step) as usize;
             let end = end.min(len).max(start + 1);
             let window = &samples[start..end];
-            let peak = window.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-            out.push(peak);
+
+            // 👇 MUDANÇA: RMS (energia média) em vez de pico máximo
+            let sum_sq: f32 = window.iter().map(|s| s * s).sum();
+            let rms = (sum_sq / window.len() as f32).sqrt();
+            out.push(rms);
         }
 
         out
     }
 
-    /// Estima o BPM usando autocorrelação via FFT.
     fn estimate_bpm_fft(samples: &[f32], sample_rate: u32) -> Option<f32> {
         if samples.len() < 1024 {
             return None;
@@ -281,7 +276,6 @@ impl AudioAnalyzer {
         Some(bpm)
     }
 
-    /// Estima o BPM usando RMS + histograma de intervalos entre picos de energia.
     fn estimate_bpm_rms(samples: &[f32], sample_rate: u32) -> Option<f32> {
         if samples.is_empty() {
             return None;
@@ -346,7 +340,6 @@ impl AudioAnalyzer {
         let best_interval = interval_histogram[0].0;
 
         let bpm = 60.0 / best_interval;
-
         if bpm < 60.0 || bpm > 200.0 {
             return None;
         }
@@ -354,7 +347,6 @@ impl AudioAnalyzer {
         Some(bpm)
     }
 
-    /// Computa posições de downbeat candidatos baseado no BPM estimado.
     fn compute_beatgrid(samples: &[f32], sample_rate: u32, bpm: Option<f32>) -> Vec<f32> {
         let bpm = match bpm {
             Some(b) => b,

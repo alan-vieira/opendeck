@@ -24,6 +24,7 @@ interface TrackAnalysis {
   beatgrid_seconds: number[];
   waveform_amplitudes: number[];
   estimated_bpm: number | null;
+  duration_seconds: number; // 👈 NOVO CAMPO
 }
 
 interface DeviceInfo {

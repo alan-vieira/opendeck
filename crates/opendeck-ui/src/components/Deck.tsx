@@ -85,15 +85,15 @@ export default function Deck({ deckId, track, onLoadTrack }: DeckProps) {
     setCues(track.cues || []);
   }, [track?.id]);
 
-  // Progresso real: avança conforme a reprodução (simulação refinada)
+  // Progresso real: NÃO pausa o isPlaying quando chega no fim, só limita visualmente
   useEffect(() => {
     if (!isPlaying || !track) return;
     const interval = setInterval(() => {
       setCurrentTime((prev) => {
         const next = prev + 0.1 * tempoFactor;
-        if (next >= duration && duration > 0) {
-          setIsPlaying(false);
-          return 0;
+        // 👇 Não para a música, só limita o ponteiro ao final da track
+        if (duration > 0 && next >= duration) {
+          return duration;
         }
         return next;
       });
@@ -101,9 +101,14 @@ export default function Deck({ deckId, track, onLoadTrack }: DeckProps) {
     return () => clearInterval(interval);
   }, [isPlaying, track, duration, tempoFactor]);
 
+  // Duração REAL vem do backend
   useEffect(() => {
-    if (track?.analysis?.waveform_amplitudes && track.analysis.waveform_amplitudes.length > 0) {
-      setDuration(track.analysis.estimated_bpm ? 60 * 32 / track.analysis.estimated_bpm * 4 : 180);
+    if (track?.analysis?.duration_seconds && track.analysis.duration_seconds > 0) {
+      setDuration(track.analysis.duration_seconds);
+    } else if (track?.analysis?.estimated_bpm) {
+      setDuration(60 * 32 / track.analysis.estimated_bpm * 4); // fallback
+    } else if (track) {
+      setDuration(240); // fallback final
     }
   }, [track]);
 
@@ -135,7 +140,6 @@ export default function Deck({ deckId, track, onLoadTrack }: DeckProps) {
             className="p-1.5 text-[#666] hover:text-white transition-colors" title="Carregar">▶</button>
         </div>
 
-        {/* 👇 EFEITO GRÁFICO: barra de progresso abaixo da waveform 👇 */}
         {track && (
           <div className="px-2 pt-2">
             <div className="w-full h-1.5 bg-[#222] rounded-full overflow-hidden">
@@ -233,7 +237,6 @@ export default function Deck({ deckId, track, onLoadTrack }: DeckProps) {
   );
 }
 
-// Helper para formatar tempo (mm:ss)
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return '0:00';
   const m = Math.floor(seconds / 60);

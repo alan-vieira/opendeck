@@ -113,6 +113,7 @@ impl DatParser {
             beatgrid_seconds,
             waveform_amplitudes,
             estimated_bpm: None,
+            duration_seconds: 0.0, // 👈 ADICIONADO AQUI
         })
     }
 }

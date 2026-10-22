@@ -78,12 +78,12 @@ async fn load_library(usb_root: String, state: tauri::State<'_, AppState>) -> Re
         }
 
         // 1. Tentar usar o cache
-        if let Some(cached) = cache.get(audio_path) {
-            eprintln!("    ✅ Cache hit - waveform: {} pixels", cached.waveform_amplitudes.len());
-            track.analysis = Some(cached);
-            cached_count += 1;
-            continue;
-        }
+        // if let Some(cached) = cache.get(audio_path) {
+        //    eprintln!("    ✅ Cache hit - waveform: {} pixels", cached.waveform_amplitudes.len());
+        //    track.analysis = Some(cached);
+        //    cached_count += 1;
+        //    continue;
+        //}
 
         // 2. Analisar o arquivo
         eprintln!("    🔬 Analisando áudio...");

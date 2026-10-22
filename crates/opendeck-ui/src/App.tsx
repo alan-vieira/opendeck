@@ -15,6 +15,7 @@ function AppInner() {
   const [dbError, setDbError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(!isAuthenticated);
   const [userState, setUserState] = useState<UserState | null>(null);
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
 
   // Carrega estado do usuário ao autenticar
   useEffect(() => {
@@ -33,7 +34,6 @@ function AppInner() {
     if (!isAuthenticated) return;
     setIsLoading(true);
     setDbError(null);
-    // Usa último USB root salvo ou padrão
     const usbRoot = userState?.last_usb_root || 'D:/';
     loadLibrary(usbRoot)
       .then((loadedTracks) => {
@@ -45,6 +45,10 @@ function AppInner() {
       })
       .finally(() => setIsLoading(false));
   }, [isAuthenticated, userState]);
+
+  const handleTrackSelect = useCallback((track: Track | null) => {
+    setSelectedTrack(track);
+  }, []);
 
   const handleDeckTrackSelect = useCallback((deckIndex: 0 | 1, track: Track) => {
     setDeckTracks((prev) => {
@@ -69,12 +73,10 @@ function AppInner() {
 
   return (
     <div className="flex h-screen bg-[#0a0a0a] text-[#fafafa] overflow-hidden">
-      {/* Auth Modal */}
       {authOpen && (
         <AuthModal onLogin={handleLogin} onClose={() => setAuthOpen(false)} />
       )}
 
-      {/* Biblioteca lateral */}
       <aside className="w-80 bg-[#111111] border-r border-[#1f1f1f] flex flex-col">
         <div className="p-4 border-b border-[#1f1f1f]">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
@@ -92,7 +94,9 @@ function AppInner() {
             tracks={tracks}
             isLoading={isLoading}
             selectedTrack={selectedTrack}
-            onSelect={handleTrackSelect}
+            onSelect={(track) => track && handleTrackSelect(track)}
+            // 👇 Duplo clique envia a track para o Deck 1 👇
+            onDoubleClick={(track) => handleDeckTrackSelect(0, track)} 
           />
         </div>
         <div className="p-3 border-t border-[#1f1f1f] bg-[#111111]">
@@ -109,25 +113,18 @@ function AppInner() {
         <div className="absolute inset-0 z-0 bg-[#1a1a1a] opacity-10 pointer-events-none"></div>
 
         <div className="relative z-10 flex-1 flex flex-col p-4">
-          {/* Duas waveforms lado a lado */}
           <div className="flex-1 mb-4 flex gap-4">
             <Deck
               deckId={1}
               track={deckTracks[0]}
-              onLoadTrack={(track: Track) => {
-                handleDeckTrackSelect(0, track);
-              }}
+              onLoadTrack={(track: Track) => handleDeckTrackSelect(0, track)}
             />
             <Deck
               deckId={2}
               track={deckTracks[1]}
-              onLoadTrack={(track: Track) => {
-                handleDeckTrackSelect(1, track);
-              }}
+              onLoadTrack={(track: Track) => handleDeckTrackSelect(1, track)}
             />
           </div>
-
-          {/* Mixer central */}
           <Mixer />
         </div>
       </main>

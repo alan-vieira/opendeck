@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { Track, TrackAnalysis, CuePoint, DeviceInfo, UserState, UserPreferences } from '../types';
 
 export const loadLibrary = async (usbRoot: string): Promise<Track[]> => {
-  return invoke('load_library', { usbRoot });
+  return invoke('load_library', { usbRoot }); 
 };
 
 export const loadTrackAnalysis = async (filePath: string): Promise<TrackAnalysis> => {
@@ -14,23 +14,35 @@ export const getCuesForTrack = async (trackId: string): Promise<CuePoint[]> => {
 };
 
 export const playTrack = async (filePath: string, deckIndex: number): Promise<void> => {
-  return invoke('play_track', { filePath, deck_index: deckIndex });
+  return invoke('play_track', { filePath, deckIndex }); 
+};
+
+export const pauseTrack = async (deckIndex: number): Promise<void> => {
+  return invoke('pause_track', { deckIndex });
+};
+
+export const resumeTrack = async (deckIndex: number): Promise<void> => {
+  return invoke('resume_track', { deckIndex });
+};
+
+export const seekTrack = async (deckIndex: number, positionMs: number): Promise<void> => {
+  return invoke('seek_track', { deckIndex, positionMs });
 };
 
 export const stopTrack = async (deckIndex: number): Promise<void> => {
-  return invoke('stop_track', { deck_index: deckIndex });
+  return invoke('stop_track', { deckIndex });
 };
 
 export const setTempo = async (factor: number, deckIndex: number): Promise<void> => {
-  return invoke('set_tempo', { factor, deck_index: deckIndex });
+  return invoke('set_tempo', { factor, deckIndex });
 };
 
 export const setPitch = async (semitones: number, deckIndex: number): Promise<void> => {
-  return invoke('set_pitch', { semitones, deck_index: deckIndex });
+  return invoke('set_pitch', { semitones, deckIndex });
 };
 
 export const setVolume = async (volume: number, deckIndex: number): Promise<void> => {
-  return invoke('set_volume', { volume, deck_index: deckIndex });
+  return invoke('set_volume', { volume, deckIndex });
 };
 
 export const getDevices = async (): Promise<DeviceInfo[]> => {
@@ -54,7 +66,6 @@ export const updateWindowState = async (width: number, height: number, x: number
 };
 
 export const login = async (_username: string, _password: string): Promise<string> => {
-  // Placeholder: o backend Tauri pode expor um comando de login no futuro
   const token = `dev-token-${_username}`;
   localStorage.setItem('token', token);
   return token;

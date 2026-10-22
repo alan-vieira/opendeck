@@ -1,10 +1,11 @@
 //! Persistência de estado do usuário (último USB, tracks recentes, preferências).
 //!
 //! Salva em `<config_dir>/opendeck/user_state.json`.
+#![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::{fs, io};
 
 const MAX_RECENT_TRACKS: usize = 50;

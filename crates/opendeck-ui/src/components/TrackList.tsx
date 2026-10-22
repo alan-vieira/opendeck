@@ -5,6 +5,7 @@ interface TrackListProps {
   isLoading?: boolean;
   selectedTrack: Track | null;
   onSelect: (track: Track) => void;
+  onDoubleClick?: (track: Track) => void; // 👈 Adicionado aqui
 }
 
 export default function TrackList({
@@ -12,6 +13,7 @@ export default function TrackList({
   isLoading = false,
   selectedTrack,
   onSelect,
+  onDoubleClick, // 👈 Adicionado aqui
 }: TrackListProps) {
   if (isLoading) {
     return (
@@ -38,6 +40,7 @@ export default function TrackList({
         <div
           key={track.id}
           onClick={() => onSelect(track)}
+          onDoubleClick={() => onDoubleClick?.(track)} // 👈 Adicionado aqui
           className={`flex items-center gap-3 px-3 py-2 rounded cursor-pointer transition-colors ${
             selectedTrack?.id === track.id
               ? 'bg-[#3a3a3a] border-l-2 border-[#3b82f6] text-white'

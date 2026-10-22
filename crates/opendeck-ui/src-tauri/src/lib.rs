@@ -1,10 +1,15 @@
-use opendeck_analysis::DatParser;
+use opendeck_analysis::{analyze_audio, cache::AnalysisCache};
 use opendeck_audio::{AudioEngine, PlaybackState};
 use opendeck_core::{CuePoint, Track};
-use opendeck_db::RekordboxDb;
+use opendeck_db::read_library;
 use opendeck_hardware::UsbScanner;
 use serde::Serialize;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
+use tokio::task::spawn_blocking;
+
+mod state_persistence;
+use state_persistence::{load_user_state, save_user_state, set_last_usb_root, UserState, UserPreferences};
 
 /// Wrapper para AudioEngine que implementa Send + Sync manualmente.
 /// cpal::Stream não implementa Send/Sync, então não pode ser compartilhado
@@ -36,55 +41,116 @@ pub struct DeviceInfo {
 /// Estado global da aplicação.
 struct AppState {
     audio_engines: AudioEngineHandle,
+    analysis_cache: AnalysisCache,
+    library: Arc<Mutex<Vec<Track>>>,
+    user_state: Mutex<UserState>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
             audio_engines: AudioEngineHandle::default(),
+            analysis_cache: AnalysisCache::new(),
+            library: Arc::new(Mutex::new(Vec::new())),
+            user_state: Mutex::new(load_user_state().unwrap_or_default()),
         }
     }
 }
 
-/// Obtém a chave de criptografia do Rekordbox.
-///
-/// Prioridade: variável de ambiente `OPENDECK_DB_KEY` > fallback (texto plano,
-/// apenas para desenvolvimento). Em Rekordbox 6.6.5+ a chave não é mais texto
-/// plano no `app.asar`, então o usuário deve fornecê-la via variável de
-/// ambiente ou tela de configuração.
-fn db_key() -> String {
-    std::env::var("OPENDECK_DB_KEY")
-        .unwrap_or_else(|_| "402fd482c38817c35ffa8ffb8c7d93143b749e7d315df7a81732a1ff43608497".to_string())
-}
-
+/// Lê a biblioteca completa de um Pen Drive exportado pelo Rekordbox.
+/// Inicia a análise de áudio em background para cada track que ainda não
+/// tenha resultado em cache (disco ou memória).
 #[tauri::command]
-async fn load_library(db_path: String) -> Result<Vec<Track>, String> {
-    let key = db_key();
-    let db = RekordboxDb::open(&db_path, &key)
-        .map_err(|e| format!("Erro ao abrir banco de dados: {}", e))?;
-    let tracks = db.get_tracks().map_err(|e| format!("Erro ao ler tracks: {}", e))?;
+async fn load_library(
+    usb_root: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<Track>, String> {
+    let usb_path = Path::new(&usb_root);
+    let mut tracks = read_library(usb_path)
+        .map_err(|e| format!("Erro ao ler biblioteca Rekordbox: {}", e))?;
+
+    let cache = state.analysis_cache.clone();
+
+    // Preenche analysis a partir do cache local (memória/disco) para cada track
+    for track in tracks.iter_mut() {
+        let audio_path = Path::new(&track.file_path);
+        if audio_path.exists() {
+            if let Some(cached) = cache.get(audio_path) {
+                track.analysis = Some(cached);
+            }
+        }
+    }
+
+    // Salva a biblioteca no estado da aplicação para uso posterior
+    {
+        let mut lib = state.library.lock().map_err(|e| e.to_string())?;
+        *lib = tracks.clone();
+    }
+
+    // Dispara análise em background para tracks sem cache
+        let tracks_for_bg: Vec<Track> = tracks
+            .iter()
+            .filter(|t| t.analysis.is_none() && Path::new(&t.file_path).exists())
+            .cloned()
+            .collect();
+
+        if !tracks_for_bg.is_empty() {
+                    let cache_bg = cache.clone();
+                    let lib_state = state.library.clone();
+                    tauri::async_runtime::spawn(async move {
+                        for track in tracks_for_bg {
+                            let file_path = track.file_path.clone();
+                            let track_id = track.id.clone();
+                            let file_path_for_blocking = file_path.clone();
+                            if let Ok(analysis) = spawn_blocking(move || {
+                                let audio_path = Path::new(&file_path_for_blocking);
+                                analyze_audio(audio_path)
+                            }).await {
+                                if let Ok(analysis) = analysis {
+                                    let audio_path = Path::new(&file_path);
+                                    let _ = cache_bg.insert(audio_path, analysis.clone());
+                                    // Atualiza a biblioteca em memória
+                                    if let Ok(mut lib) = lib_state.lock() {
+                                        if let Some(t) = lib.iter_mut().find(|t| t.id == track_id) {
+                                            t.analysis = Some(analysis);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+    // Salva último USB root usado
+    {
+        let mut us = state.user_state.lock().map_err(|e| e.to_string())?;
+        set_last_usb_root(&mut us, usb_root.clone());
+        let us_clone = us.clone();
+        drop(us);
+        let _ = save_user_state(&us_clone);
+    }
+
     Ok(tracks)
-}
+    }
 
-#[tauri::command]
-async fn load_track_analysis(dat_path: String) -> Result<opendeck_core::TrackAnalysis, String> {
-    let analysis = DatParser::parse_file(&dat_path)
-        .map_err(|e| format!("Erro ao analisar arquivo .DAT: {}", e))?;
-    Ok(analysis)
-}
+    #[tauri::command]
+    async fn load_track_analysis(file_path: String) -> Result<opendeck_core::TrackAnalysis, String> {
+        let analysis = analyze_audio(Path::new(&file_path))
+            .map_err(|e| format!("Erro ao analisar arquivo de áudio: {}", e))?;
+        Ok(analysis)
+    }
 
+/// Retorna os cue points de uma track específica.
+///
+/// Os cue points já vêm embutidos na `Track` retornada por `load_library`
+/// (extraídos dos nós `<POSITION_MARK>` do rekordbox.xml).
+/// Mantido para compatibilidade com chamadas futuras do frontend.
 #[tauri::command]
 async fn get_cues_for_track(
-    db_path: String,
-    track_id: String,
+    _track_id: String,
 ) -> Result<Vec<CuePoint>, String> {
-    let key = db_key();
-    let db = RekordboxDb::open(&db_path, &key)
-        .map_err(|e| format!("Erro ao abrir banco de dados: {}", e))?;
-    let cues = db
-        .get_cues_for_track(&track_id)
-        .map_err(|e| format!("Erro ao ler cues: {}", e))?;
-    Ok(cues)
+    // Implementação futura: buscar cues da track já carregada em memória
+    Ok(vec![])
 }
 
 #[tauri::command]
@@ -212,13 +278,15 @@ fn resolve_audio_path(rel_path: &str) -> Option<String> {
     let file_name = p.file_name()?.to_string_lossy().to_string();
 
     let search_dirs = [
+        r"D:\PIONEER
+ekordbox",
         r"C:\Users\alsvi\Music",
         r"C:\Users\alsvi\Músicas",
         r"D:\Músicas",
         r"C:\Users\alsvi\Desktop",
         r"C:\Users\alsvi\Documents",
         r"C:\Users\alsvi\AppData\Roaming\Pioneer
- rekordbox",
+rekordbox",
     ];
 
     // Busca direta (arquivo na raiz da pasta)
@@ -264,6 +332,68 @@ async fn get_devices() -> Result<Vec<DeviceInfo>, String> {
         .collect())
 }
 
+/// Carrega o estado persistido do usuário.
+#[tauri::command]
+async fn get_user_state(
+    state: tauri::State<'_, AppState>,
+) -> Result<UserState, String> {
+    let user_state = state.user_state.lock().map_err(|e| e.to_string())?;
+    Ok(user_state.clone())
+}
+
+/// Salva o estado do usuário (preferências, janela, etc.).
+#[tauri::command]
+async fn save_user_state_cmd(
+    user_state: UserState,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    {
+        let mut us = state.user_state.lock().map_err(|e| e.to_string())?;
+        *us = user_state.clone();
+    }
+    save_user_state(&user_state).map_err(|e| format!("Erro ao salvar estado: {}", e))
+}
+
+/// Atualiza preferências do usuário.
+#[tauri::command]
+async fn update_preferences(
+    preferences: UserPreferences,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    {
+        let mut us = state.user_state.lock().map_err(|e| e.to_string())?;
+        us.preferences = preferences.clone();
+    }
+    let us = {
+        let guard = state.user_state.lock().map_err(|e| e.to_string())?;
+        guard.clone()
+    };
+    save_user_state(&us).map_err(|e| format!("Erro ao salvar preferências: {}", e))
+}
+
+/// Atualiza estado da janela (tamanho/posição).
+#[tauri::command]
+async fn update_window_state_cmd(
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    {
+        let mut us = state.user_state.lock().map_err(|e| e.to_string())?;
+        us.window_width = Some(width);
+        us.window_height = Some(height);
+        us.window_x = Some(x);
+        us.window_y = Some(y);
+    }
+    let us = {
+        let guard = state.user_state.lock().map_err(|e| e.to_string())?;
+        guard.clone()
+    };
+    save_user_state(&us).map_err(|e| format!("Erro ao salvar estado da janela: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -278,6 +408,10 @@ pub fn run() {
             set_pitch,
             set_volume,
             get_devices,
+            get_user_state,
+            save_user_state_cmd,
+            update_preferences,
+            update_window_state_cmd,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

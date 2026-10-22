@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 serde = { workspace = true }
 thiserror = { workspace = true }
-# MUDANÇA CRÍTICA: 'vendored-openssl' baixa e compila o OpenSSL automaticamente
-rusqlite = { workspace = true, features = ["bundled-sqlcipher-vendored-openssl"] }
+roxmltree = { workspace = true }
+chrono = { workspace = true }
 opendeck-core = { path = "../opendeck-core" }
 
 [dev-dependencies]

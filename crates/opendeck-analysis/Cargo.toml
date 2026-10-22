@@ -9,3 +9,14 @@ opendeck-core = { path = "../opendeck-core" }
 byteorder = { workspace = true }
 memmap2 = { workspace = true }
 thiserror = { workspace = true }
+# Decodificador de áudio 100% Rust (sem dependências C)
+symphonia = { version = "0.5", features = ["mp3", "wav", "flac", "aac"] }
+# Resampling / downsample para mono (economia de CPU)
+rubato = "0.14"
+# FFT para autocorrelação (detecção de BPM precisa)
+rustfft = "6.1"
+# Diretório de cache do usuário (para salvar análises localmente)
+dirs = "5.0"
+# Serialização para cache JSON
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

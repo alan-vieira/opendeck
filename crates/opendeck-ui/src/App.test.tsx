@@ -31,8 +31,8 @@ const mockInvoke = mockInvokeInternals.invoke;
 
 describe('Frontend-Backend communication via invoke', () => {
   const mockTracks: Track[] = [
-    { id: '1', title: 'Track 1', artist: 'Artist 1', bpm: 128, file_path: '/music/track1.mp3', analysis_path: '/music/track1.dat' },
-    { id: '2', title: 'Track 2', artist: 'Artist 2', bpm: 140, file_path: '/music/track2.mp3', analysis_path: null },
+    { id: '1', title: 'Track 1', artist: 'Artist 1', bpm: 128, file_path: '/music/track1.mp3', analysis_path: '/music/track1.dat', cues: [], analysis: null },
+    { id: '2', title: 'Track 2', artist: 'Artist 2', bpm: 140, file_path: '/music/track2.mp3', analysis_path: null, cues: [], analysis: null },
   ];
 
   beforeEach(() => {
@@ -49,7 +49,7 @@ describe('Frontend-Backend communication via invoke', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     const calls = mockInvoke.mock.calls;
-    expect(calls.some(([cmd, args]) => cmd === 'load_library' && (args as any).dbPath && typeof (args as any).dbPath === 'string')).toBe(true);
+    expect(calls.some(([cmd, args]) => cmd === 'load_library' && (args as any).usbRoot && typeof (args as any).usbRoot === 'string')).toBe(true);
   });
 
   it('deve selecionar uma track', async () => {

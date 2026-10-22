@@ -9,7 +9,7 @@ Software de DJ open-source compatível com a biblioteca Rekordbox 6.x, focado em
 
 O projeto é um Workspace Rust dividido em crates modulares:
 - `opendeck-core`: Modelos de dados e traits compartilhadas.
-- `opendeck-db`: Leitor do `master.db` criptografado (SQLCipher).
+- `opendeck-db`: Leitor do `rekordbox.xml` da biblioteca exportada pelo Rekordbox.
 - `opendeck-analysis`: Parser binário zero-copy dos arquivos `.DAT` (Waveform/Beatgrid).
 - `opendeck-audio`: Motor de áudio de baixa latência (`cpal` + `symphonia`).
 - `opendeck-hardware`: Detecção USB e mapeamento MIDI de controladores Pioneer.
@@ -21,7 +21,6 @@ O projeto é um Workspace Rust dividido em crates modulares:
 - [Rust](https://rustup.rs/) (toolchain estável)
 - [Node.js](https://nodejs.org/) (v18+)
 - Tauri CLI: `cargo install tauri-cli --version "^2.0.0"`
-- **Windows:** NASM (necessário para compilar o OpenSSL vendored): `winget install nasm`
 
 ### Instalação e Execução
 
@@ -46,7 +45,7 @@ O projeto é um Workspace Rust dividido em crates modulares:
 ## 🛠️ Status do Desenvolvimento
 
 - [x] Parser de arquivos .DAT (PQTZ, PWAV)
-- [x] Leitura do master.db com SQLCipher
+- [x] Leitura do `rekordbox.xml` (substitui o `master.db` SQLCipher)
 - [x] Motor de áudio com buffer configurável (padrão: 128 frames / ~2.67ms)
 - [x] Interface Tauri + React funcional
 - [ ] Integração completa Deck A / Deck B + Mixer

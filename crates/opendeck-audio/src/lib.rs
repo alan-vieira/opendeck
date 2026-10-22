@@ -52,10 +52,6 @@ pub const DEFAULT_SAMPLE_RATE: u32 = 48_000;
 /// Valor fixo para latência determinística.
 pub const BUFFER_SIZE: u32 = 128;
 
-/// Capacidade do ring buffer em frames (2 segundos de áudio @ 48kHz).
-/// Permite absorver variações de agendamento da thread de decode.
-const RING_BUFFER_FRAMES: usize = (DEFAULT_SAMPLE_RATE as usize) * 2;
-
 /// Erros do motor de áudio.
 #[derive(Error, Debug)]
 pub enum AudioError {
@@ -240,15 +236,14 @@ pub struct AudioEngine {
 }
 
 impl AudioEngine {
-    /// Cria um novo motor de áudio com configuração padrão.
-    ///
-    /// Detecta dispositivo de saída padrão, configura stream com buffer fixo de 128 frames.
+    /// Cria um novo motor de áudio com configuração padrão (buffer de 2 segundos).
     pub fn new() -> Result<Self, AudioError> {
-        Self::with_config(AudioEngineConfig::default())
+        Self::with_buffer_seconds(AudioEngineConfig::default(), 2.0)
     }
 
-    /// Cria motor com configuração customizada.
-    pub fn with_config(config: AudioEngineConfig) -> Result<Self, AudioError> {
+    /// Cria um novo motor de áudio com tamanho de buffer customizado em segundos.
+    /// Ex: `AudioEngine::new(4.0)` para 4 segundos de buffer (mais seguro contra underruns).
+    pub fn with_buffer_seconds(mut config: AudioEngineConfig, buffer_seconds: f32) -> Result<Self, AudioError> {
         let host = cpal::default_host();
 
         // Seleciona dispositivo: tenta ASIO no Windows, senão default
@@ -278,12 +273,13 @@ impl AudioEngine {
         let mut stream_config: StreamConfig = config_range
             .with_sample_rate(SampleRate(config.sample_rate))
             .config();
-        
+
         stream_config.buffer_size = BufferSize::Fixed(config.buffer_size);
 
-        // Ring buffer lock-free SPSC
-        let ring_buffer = Arc::new(RingBuffer::new(RING_BUFFER_FRAMES * stream_config.channels as usize));
-        
+        // Ring buffer lock-free SPSC com tamanho baseado em buffer_seconds
+        let ring_frames = (config.sample_rate as f32 * buffer_seconds) as usize;
+        let ring_buffer = Arc::new(RingBuffer::new(ring_frames * stream_config.channels as usize));
+
         let state = Arc::new(Mutex::new(PlaybackState::Stopped));
         let xrun_count = Arc::new(Mutex::new(0u64));
         let tempo_factor = Arc::new(Mutex::new(1.0f32));
@@ -346,6 +342,34 @@ impl AudioEngine {
         self.stream = Some(stream);
         *self.state.lock().unwrap() = PlaybackState::Playing;
         Ok(())
+    }
+
+    /// Alias para `start_stream()`. Inicia o stream de áudio CPAL.
+    pub fn start(&mut self) -> Result<(), AudioError> {
+        self.start_stream()
+    }
+
+    /// Carrega uma track, inicia o stream e começa a reprodução em uma única chamada.
+    /// Combina `load_track()` + `start_stream()` + `play()`.
+    pub fn play_file(&mut self, path: &Path) -> Result<(), AudioError> {
+        self.load_track(path.to_str().ok_or_else(|| AudioError::FileNotFound(path.display().to_string()))?)?;
+        if self.stream.is_none() {
+            self.start_stream()?;
+        }
+        self.play()?;
+        Ok(())
+    }
+
+    /// Encerra o motor de áudio de forma limpa: pausa o stream, encerra a thread de decode.
+    pub fn shutdown(&mut self) {
+        if let Some(stream) = self.stream.take() {
+            let _ = stream.pause();
+        }
+        *self.decode_shutdown.lock().unwrap() = true;
+        if let Some(handle) = self.decode_handle.take() {
+            let _ = handle.join();
+        }
+        *self.state.lock().unwrap() = PlaybackState::Stopped;
     }
 
     /// Constrói o stream de saída CPAL com callback de áudio real-time.
@@ -522,6 +546,13 @@ impl AudioEngine {
         *self.state.lock().unwrap()
     }
 
+    /// Retorna quantos segundos de áudio estão no buffer (para debug/monitoramento).
+    pub fn buffer_fill_seconds(&self) -> f32 {
+        let available = self.ring_buffer.available();
+        let frames = available / self.channels as usize;
+        frames as f32 / self.sample_rate as f32
+    }
+
     /// Retorna nome do dispositivo de áudio em uso.
     pub fn device_name(&self) -> &str {
         &self.device_name
@@ -545,13 +576,7 @@ impl AudioEngine {
 
 impl Drop for AudioEngine {
     fn drop(&mut self) {
-        *self.decode_shutdown.lock().unwrap() = true;
-        if let Some(handle) = self.decode_handle.take() {
-            let _ = handle.join();
-        }
-        if let Some(stream) = self.stream.take() {
-            let _ = stream.pause();
-        }
+        self.shutdown();
     }
 }
 

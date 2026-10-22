@@ -16,12 +16,13 @@ serde_json = "1.0"
 thiserror = "1.0"
 tokio = { version = "1.35", features = ["full"] }
 
+# Parser XML Rekordbox (rekordbox.xml)
+roxmltree = "0.19"
+chrono = "0.4"
+
 # Análise de Arquivos (.DAT)
 byteorder = "1.5"
 memmap2 = "0.9"
-
-# Banco de Dados (SQLCipher)
-rusqlite = { version = "0.31", features = ["bundled-sqlcipher"] }
 
 # Áudio (Cross-platform: WASAPI/ASIO no Win, ALSA/PipeWire no Linux)
 cpal = "0.15"

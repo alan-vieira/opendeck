@@ -10,29 +10,37 @@ pub struct Track {
     pub bpm: Option<f32>,
     pub file_path: String,
     pub analysis_path: Option<String>,
+    pub cues: Vec<CuePoint>,
+    pub analysis: Option<TrackAnalysis>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CueType {
-    Normal = 0,
-    LoopIn = 1,
-    LoopOut = 2,
-    Memory = 3,
+    Memory,
+    HotCue,
+    Loop,
+    FadeIn,
+    FadeOut,
+    Unknown(u8),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CuePoint {
     pub id: String,
     pub track_id: String,
-    pub time_seconds: f32,
+    pub name: String,
     pub cue_type: CueType,
-    pub name: Option<String>,
+    pub start_ms: u32,
+    pub end_ms: Option<u32>,
+    pub hot_cue_index: Option<u8>,
+    pub color_rgb: Option<(u8, u8, u8)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackAnalysis {
     pub beatgrid_seconds: Vec<f32>,
     pub waveform_amplitudes: Vec<u8>,
+    pub estimated_bpm: Option<f32>,
 }
 
 // Erros base que podem ser reutilizados

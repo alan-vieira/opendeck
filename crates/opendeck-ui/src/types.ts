@@ -5,19 +5,25 @@ interface Track {
   bpm: number | null;
   file_path: string;
   analysis_path: string | null;
+  cues: CuePoint[];
+  analysis: TrackAnalysis | null;
 }
 
 interface CuePoint {
   id: string;
   track_id: string;
-  time_seconds: number;
-  cue_type: 'Normal' | 'LoopIn' | 'LoopOut' | 'Memory';
-  name: string | null;
+  name: string;
+  cue_type: 'Memory' | 'HotCue' | 'Loop' | 'FadeIn' | 'FadeOut' | 'Unknown';
+  start_ms: number;
+  end_ms: number | null;
+  hot_cue_index: number | null;
+  color_rgb: [number, number, number] | null;
 }
 
 interface TrackAnalysis {
   beatgrid_seconds: number[];
   waveform_amplitudes: number[];
+  estimated_bpm: number | null;
 }
 
 interface DeviceInfo {
@@ -33,6 +39,33 @@ interface Playlist {
   id: string;
   name: string;
   track_count: number;
+}
+
+interface RecentTrack {
+  track_id: string;
+  title: string;
+  artist: string;
+  file_path: string;
+  timestamp: number;
+}
+
+interface UserPreferences {
+  master_volume: number;
+  theme: string;
+  auto_analyze: boolean;
+  audio_buffer_seconds: number;
+  show_waveform: boolean;
+  default_deck: number;
+}
+
+interface UserState {
+  last_usb_root: string | null;
+  recent_tracks: RecentTrack[];
+  window_width: number | null;
+  window_height: number | null;
+  window_x: number | null;
+  window_y: number | null;
+  preferences: UserPreferences;
 }
 
 interface PlaybackState {
@@ -51,4 +84,4 @@ interface AuthState {
   logout: () => void;
 }
 
-export type { Track, CuePoint, TrackAnalysis, DeviceInfo, Playlist, PlaybackState, AuthState };
+export type { Track, CuePoint, TrackAnalysis, DeviceInfo, Playlist, PlaybackState, AuthState, UserState, UserPreferences, RecentTrack };

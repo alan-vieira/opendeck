@@ -28,6 +28,9 @@ opendeck-hardware = { path = "../../opendeck-hardware" }
 # Busca recursiva de arquivos de áudio em pastas de música
 walkdir = "2.4"
 
+# Diretório de config do usuário (para persistência de estado)
+dirs = "5.0"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

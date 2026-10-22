@@ -18,21 +18,21 @@ describe('load_library command', () => {
 
   it('deve chamar invoke com os parâmetros corretos', async () => {
     const mockTracks = [
-      { id: '1', title: 'Track 1', artist: 'Artist 1', bpm: 128, file_path: '/path/track1.mp3', analysis_path: null },
+      { id: '1', title: 'Track 1', artist: 'Artist 1', bpm: 128, file_path: '/path/track1.mp3', analysis_path: null, cues: [], analysis: null },
     ];
     mockInvoke.mockResolvedValue(mockTracks);
 
-    const result = await loadLibrary('C:/music/master.db');
+    const result = await loadLibrary('D:/music');
 
     const calls = mockInvoke.mock.calls;
-    expect(calls.some(([cmd, args]) => cmd === 'load_library' && (args as any).dbPath === 'C:/music/master.db')).toBe(true);
+    expect(calls.some(([cmd, args]) => cmd === 'load_library' && (args as any).usbRoot === 'D:/music')).toBe(true);
     expect(result).toEqual(mockTracks);
   });
 
   it('deve propagar erros do invoke', async () => {
     mockInvoke.mockRejectedValue(new Error('Database error'));
 
-    await expect(loadLibrary('C:/bad.db')).rejects.toThrow('Database error');
+    await expect(loadLibrary('D:/bad')).rejects.toThrow('Database error');
   });
 });
 
@@ -41,17 +41,18 @@ describe('load_track_analysis command', () => {
     mockInvoke.mockReset();
   });
 
-  it('deve chamar invoke com o caminho do DAT', async () => {
+  it('deve chamar invoke com o caminho do arquivo', async () => {
     const mockAnalysis = {
       beatgrid_seconds: [0, 4.56, 9.12],
       waveform_amplitudes: [0, 128, 255, 128, 0],
+      estimated_bpm: 128,
     };
     mockInvoke.mockResolvedValue(mockAnalysis);
 
-    const result = await loadTrackAnalysis('C:/music/track.dat');
+    const result = await loadTrackAnalysis('C:/music/track.mp3');
 
     const calls = mockInvoke.mock.calls;
-    expect(calls.some(([cmd, args]) => cmd === 'load_track_analysis' && (args as any).datPath === 'C:/music/track.dat')).toBe(true);
+    expect(calls.some(([cmd, args]) => cmd === 'load_track_analysis' && (args as any).filePath === 'C:/music/track.mp3')).toBe(true);
     expect(result.beatgrid_seconds).toEqual([0, 4.56, 9.12]);
     expect(result.waveform_amplitudes).toEqual([0, 128, 255, 128, 0]);
   });

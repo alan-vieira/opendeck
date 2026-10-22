@@ -19,3 +19,14 @@
    *.flac
 # Bundle analysis
 crates/opendeck-ui/bundle-analysis.html
+
+# Dependências e build do frontend
+crates/opendeck-ui/node_modules/
+crates/opendeck-ui/dist/
+
+# Arquivos inválidos do Windows
+nul
+*.nul
+
+# Target do Rust (já deve estar, mas garante)
+target/

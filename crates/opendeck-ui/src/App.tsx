@@ -3,23 +3,39 @@ import TrackList from './components/TrackList';
 import Deck from './components/Deck';
 import Mixer from './components/Mixer';
 import AuthModal from './components/AuthModal';
-import { loadLibrary, logout } from './services/api';
-import type { Track } from './types';
+import { loadLibrary, logout, getUserState } from './services/api';
+import type { Track, UserState } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 function AppInner() {
   const { isAuthenticated, login, logout: authLogout } = useAuth();
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  const [deckTracks, setDeckTracks] = useState<[Track | null, Track | null]>([null, null]);
   const [isLoading, setIsLoading] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(!isAuthenticated);
+  const [userState, setUserState] = useState<UserState | null>(null);
 
+  // Carrega estado do usuário ao autenticar
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    getUserState()
+      .then((state) => {
+        setUserState(state);
+      })
+      .catch((err) => {
+        console.warn('Falha ao carregar estado do usuário:', err);
+      });
+  }, [isAuthenticated]);
+
+  // Carrega biblioteca ao autenticar
   useEffect(() => {
     if (!isAuthenticated) return;
     setIsLoading(true);
     setDbError(null);
-    loadLibrary('C:/Users/alsvi/AppData/Roaming/Pioneer/rekordbox/master.db')
+    // Usa último USB root salvo ou padrão
+    const usbRoot = userState?.last_usb_root || 'D:/';
+    loadLibrary(usbRoot)
       .then((loadedTracks) => {
         setTracks(loadedTracks);
       })
@@ -28,10 +44,14 @@ function AppInner() {
         setDbError(msg);
       })
       .finally(() => setIsLoading(false));
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userState]);
 
-  const handleTrackSelect = useCallback((track: Track) => {
-    setSelectedTrack(track);
+  const handleDeckTrackSelect = useCallback((deckIndex: 0 | 1, track: Track) => {
+    setDeckTracks((prev) => {
+      const next = [...prev] as [Track | null, Track | null];
+      next[deckIndex] = track;
+      return next;
+    });
   }, []);
 
   const handleLogin = useCallback((token: string) => {
@@ -43,7 +63,7 @@ function AppInner() {
     authLogout();
     logout();
     setTracks([]);
-    setSelectedTrack(null);
+    setDeckTracks([null, null]);
     setAuthOpen(true);
   }, [authLogout]);
 
@@ -93,16 +113,16 @@ function AppInner() {
           <div className="flex-1 mb-4 flex gap-4">
             <Deck
               deckId={1}
-              track={selectedTrack}
+              track={deckTracks[0]}
               onLoadTrack={(track: Track) => {
-                setSelectedTrack(track);
+                handleDeckTrackSelect(0, track);
               }}
             />
             <Deck
               deckId={2}
-              track={selectedTrack}
+              track={deckTracks[1]}
               onLoadTrack={(track: Track) => {
-                setSelectedTrack(track);
+                handleDeckTrackSelect(1, track);
               }}
             />
           </div>

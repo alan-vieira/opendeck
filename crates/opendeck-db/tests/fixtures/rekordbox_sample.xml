@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DJ_PLAYLISTS Version="1.0.0">
+  <PRODUCT Name="rekordbox" Version="6.6.6" Company="AlphaTheta"/>
+  <COLLECTION Entries="3">
+    <TRACK TrackID="1" Name="Midnight City" Artist="M83" Composer="" Album="Hurry Up, We're Dreaming"
+           Grouping="" Kind="MP3 Audio File" Size="8456789" Comments=""
+           BitRate="320" SampleRate="44100" StartTime="0" EndTime="245"
+           AverageBpm="105.50" DateAdded="2024-01-15" ReleaseDate="2011-10-18"
+           TotalBeats="513" Tonality="Am" Label="Naive" Remixer=""
+           Location="file://localhost/C:/Music/M83/Midnight%20City.mp3"
+           Rating="0" Colour="">
+      <TEMPO Inizio="0.025000" Bpm="105.50" Metro="4/4" Battito="1"/>
+      <POSITION_MARK Name="" Type="0" Start="15234" Num="-1"/>
+      <POSITION_MARK Name="Hot Cue 1" Type="0" Start="45678" Num="0"/>
+      <POSITION_MARK Name="Loop" Type="1" Start="78901" End="89012" Num="1"/>
+    </TRACK>
+    <TRACK TrackID="2" Name="Strobe" Artist="Deadmau5" Composer="" Album=""
+           Grouping="" Kind="WAV Audio File" Size="52345678" Comments="Progressive House"
+           BitRate="1411" SampleRate="44100" StartTime="0" EndTime="637"
+           AverageBpm="128.00" DateAdded="2024-02-20" ReleaseDate="2009-05-21"
+           TotalBeats="1630" Tonality="F#m" Label="Ultra Records" Remixer=""
+           Location="file:///Users/dj/Music/Deadmau5/Strobe.wav"
+           Rating="5" Colour="0xFF00FF">
+      <TEMPO Inizio="0.000000" Bpm="128.00" Metro="4/4" Battito="1"/>
+      <POSITION_MARK Name="Cue Point" Type="0" Start="0" Num="-1"/>
+      <POSITION_MARK Name="Drop" Type="0" Start="123456" Num="0"/>
+    </TRACK>
+    <TRACK TrackID="3" Name="Unknown Track" Artist="" Composer="" Album=""
+           Grouping="" Kind="MP3 Audio File" Size="4567890" Comments=""
+           BitRate="192" SampleRate="44100" StartTime="0" EndTime="189"
+           DateAdded="2024-03-10"
+           Location="file://localhost/D:/Downloads/unknown.mp3"
+           Rating="0" Colour="">
+      <TEMPO Inizio="0.000000" Bpm="140.00" Metro="4/4" Battito="1"/>
+    </TRACK>
+  </COLLECTION>
+  <PLAYLISTS>
+    <NODE Name="ROOT" Type="0" KeyType="0" Entries="0">
+      <NODE Name="My Playlist" Type="1" KeyType="0" Entries="2">
+        <TRACK Key="1"/>
+        <TRACK Key="2"/>
+      </NODE>
+    </NODE>
+  </PLAYLISTS>
+</DJ_PLAYLISTS>
